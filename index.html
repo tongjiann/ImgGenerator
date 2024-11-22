@@ -59,6 +59,23 @@
             margin-right: 10px;
         }
 
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 每行四列 */
+            gap: 15px;
+        }
+
+        .image-card {
+            position: relative;
+            text-align: center;
+        }
+
+        .image-card img {
+            width: 100%;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
         button:hover {
             background-color: #0056b3;
         }
@@ -127,6 +144,24 @@
             /* 聚焦时的边框颜色 */
             outline: none;
             /* 去掉默认的聚焦效果 */
+        }
+
+        .download-button {
+            position: absolute;
+            bottom: 5px;
+            left: 10%;
+            transform: translateX(-50%);
+            padding: 5px 10px;
+            background-color: transparent;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .download-button:hover {
+            background-color: #ccc;
         }
     </style>
 </head>
@@ -358,12 +393,25 @@
                     imageGrid.innerHTML = ""; // Clear the grid
                     const records = data.data.records || [];
                     records.forEach(record => {
-                        record.picUrlInfoList.forEach(pic => {
+                        record.picUrlInfoList.forEach((pic, index) => {
+                            const card = document.createElement("div");
+
+                            card.className = "image-card";
+
                             const img = document.createElement("img");
                             img.src = pic.picUrl;
-                            img.alt = "Generated Image";
+                            img.alt = `Image ${index + 1}`;
                             img.onclick = () => openImageModal(pic.picUrl); // 添加点击事件
-                            imageGrid.appendChild(img);
+
+                            const button = document.createElement("button");
+                            button.className = "download-button";
+                            button.textContent = "⬇";
+                            button.onclick = () => downloadImage(img.src, `image-${index + 1}.png`);
+
+                            card.appendChild(img);
+                            card.appendChild(button);
+
+                            imageGrid.appendChild(card);
                         });
                     });
                     // Scroll to the image grid
@@ -373,6 +421,16 @@
                 }
             })
             .catch(error => alert("Failed to fetch images: " + error));
+    }
+
+    // 下载图片
+    function downloadImage(url, filename) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 </script>
 
