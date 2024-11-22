@@ -174,7 +174,11 @@
     <!-- Unique ID Section -->
     <label for="uniqueid">Unique ID</label>
     <input type="text" id="uniqueid" placeholder="Enter unique ID">
-    <button onclick="generateUniqueID()">Generate UUID</button>
+    <button onclick="generateUniqueID()">Generate ID</button>
+
+    <button onclick="saveUniqueID()">Save ID</button>
+    <button onclick="removeUniqueID()">Remove ID</button>
+
 
     <label for="saved-uniqueid">Saved Unique IDs</label>
     <select id="saved-uniqueid" onchange="selectSavedUniqueID()">
@@ -246,6 +250,9 @@
         document.getElementById("uniqueid").value = localStorage.getItem(storageKeyUniqueId) || "";
         document.getElementById("prompt").value = localStorage.getItem(storageKeyPrompt) || "";
         loadSavedUniqueIds();
+        if (document.getElementById("uniqueid").value) {
+            fetchImageList()
+        }
     });
 
     // Save input values to local storage
@@ -261,14 +268,26 @@
         const uuid = crypto.randomUUID().replace(/-/g, "").toLowerCase();
         document.getElementById("uniqueid").value = uuid;
         localStorage.setItem(storageKeyUniqueId, uuid);
-        saveUniqueID(uuid);
     }
 
     // Save generated unique ID to the dropdown list
-    function saveUniqueID(uniqueId) {
+    function saveUniqueID() {
         let savedUniqueIds = JSON.parse(localStorage.getItem(storageKeySavedUniqueIds)) || [];
+        let uniqueId = document.getElementById("uniqueid").value
         if (!savedUniqueIds.includes(uniqueId)) {
             savedUniqueIds.push(uniqueId);
+            localStorage.setItem(storageKeySavedUniqueIds, JSON.stringify(savedUniqueIds));
+            loadSavedUniqueIds();
+        }
+    }
+
+    function removeUniqueID() {
+        let savedUniqueIds = JSON.parse(localStorage.getItem(storageKeySavedUniqueIds)) || [];
+        let uniqueId = document.getElementById("uniqueid").value
+        if (savedUniqueIds.includes(uniqueId)) {
+            savedUniqueIds = savedUniqueIds.filter(e => {
+                return e!==uniqueId
+            })
             localStorage.setItem(storageKeySavedUniqueIds, JSON.stringify(savedUniqueIds));
             loadSavedUniqueIds();
         }
