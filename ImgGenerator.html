@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      line-height: 1.6;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      padding: 10px 15px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      /* 每行四列 */
+      gap: 10px;
+    }
+
+    .image-grid img {
+      width: 100%;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Image Generator</h1>
+
+  <!-- Unique ID Section -->
+  <label for="uniqueid">Unique ID</label>
+  <input type="text" id="uniqueid" placeholder="Enter unique ID">
+  <button onclick="generateUniqueID()">Generate UUID</button>
+
+  <label for="saved-uniqueid">Saved Unique IDs</label>
+  <select id="saved-uniqueid" onchange="selectSavedUniqueID()">
+    <option value="">Select a saved unique ID</option>
+  </select>
+
+  <!-- Prompt Section -->
+  <label for="prompt">Prompt</label>
+  <input type="text" id="prompt" placeholder="Enter prompt">
+
+  <!-- Model Selection -->
+  <label for="model">Model</label>
+  <select id="model">
+    <option value="flux">flux (顶级模型，最佳性能，无不适内容)</option>
+    <option value="tamarin">tamarin (在多任务方面表现出色的强大模型)</option>
+    <option value="superAnime">superAnime (在动漫AI艺术方面表现出色)</option>
+    <option value="visiCanvas">visiCanvas (无与伦比的文字渲染，无NSFW内容)</option>
+  </select>
+
+  <!-- Group Count -->
+  <label for="group-count">Generation Groups</label>
+  <select id="group-count">
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+    <option value="7">7</option>
+    <option value="8">8</option>
+    <option value="9">9</option>
+    <option value="10">10</option>
+  </select>
+
+  <!-- Aspect Ratio -->
+  <label for="aspect-ratio">Aspect Ratio</label>
+  <select id="aspect-ratio">
+    <option value="1:1">1:1</option>
+    <option value="3:4">3:4</option>
+    <option value="4:3">4:3</option>
+  </select>
+
+  <!-- Request Buttons -->
+  <button onclick="startImageGeneration()">Generate Image</button>
+  <button onclick="fetchImageList()">Get Images</button>
+
+  <h2>Image List</h2>
+  <div class="image-grid" id="image-grid"></div>
+
+  <script>
+    const storageKeyUniqueId = "uniqueid";
+    const storageKeyPrompt = "prompt";
+    const storageKeySavedUniqueIds = "savedUniqueIds";
+    const serverAddr = "http://localhost:8880";
+    let imageFetchInterval;
+
+    // Load saved values on page load
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("uniqueid").value = localStorage.getItem(storageKeyUniqueId) || "";
+      document.getElementById("prompt").value = localStorage.getItem(storageKeyPrompt) || "";
+      loadSavedUniqueIds();
+    });
+
+    // Save input values to local storage
+    document.getElementById("uniqueid").addEventListener("input", () => {
+      localStorage.setItem(storageKeyUniqueId, document.getElementById("uniqueid").value);
+    });
+    document.getElementById("prompt").addEventListener("input", () => {
+      localStorage.setItem(storageKeyPrompt, document.getElementById("prompt").value);
+    });
+
+    // Generate random UUID without dashes
+    function generateUniqueID() {
+      const uuid = crypto.randomUUID().replace(/-/g, "").toLowerCase();
+      document.getElementById("uniqueid").value = uuid;
+      localStorage.setItem(storageKeyUniqueId, uuid);
+      saveUniqueID(uuid);
+    }
+
+    // Save generated unique ID to the dropdown list
+    function saveUniqueID(uniqueId) {
+      let savedUniqueIds = JSON.parse(localStorage.getItem(storageKeySavedUniqueIds)) || [];
+      if (!savedUniqueIds.includes(uniqueId)) {
+        savedUniqueIds.push(uniqueId);
+        localStorage.setItem(storageKeySavedUniqueIds, JSON.stringify(savedUniqueIds));
+        loadSavedUniqueIds();
+      }
+    }
+
+    // Load saved unique IDs into the dropdown
+    function loadSavedUniqueIds() {
+      const select = document.getElementById("saved-uniqueid");
+      const savedUniqueIds = JSON.parse(localStorage.getItem(storageKeySavedUniqueIds)) || [];
+      select.innerHTML = '<option value="">Select a saved unique ID</option>';
+      savedUniqueIds.forEach(id => {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = id;
+        select.appendChild(option);
+      });
+    }
+
+    // Select a saved unique ID
+    function selectSavedUniqueID() {
+      const selectedId = document.getElementById("saved-uniqueid").value;
+      if (selectedId) {
+        document.getElementById("uniqueid").value = selectedId;
+        localStorage.setItem(storageKeyUniqueId, selectedId);
+      }
+    }
+
+    // Start image generation requests
+    async function startImageGeneration() {
+      const prompt = document.getElementById("prompt").value;
+      const uniqueId = document.getElementById("uniqueid").value;
+      const model = document.getElementById("model").value;
+      const groupCount = parseInt(document.getElementById("group-count").value);
+      const aspectRatio = document.getElementById("aspect-ratio").value;
+
+      if (!prompt || !uniqueId) {
+        alert("Please fill in both Unique ID and Prompt fields.");
+        return;
+      }
+
+      clearInterval(imageFetchInterval);
+
+      for (let i = 1; i <= groupCount; i++) {
+        try {
+          sendGenerateRequest(prompt, uniqueId, model, aspectRatio);
+          console.log(`Request ${i} succeeded.`);
+        } catch (error) {
+          alert(`Request ${i} failed: ${error}`);
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+
+      alert(`All ${groupCount} image generation requests completed.`);
+
+      // 设置 2 分钟后获取图片
+      delayedFetchTimeout = setTimeout(() => {
+        fetchImageList();
+        delayedFetchTimeout = null; // 执行完成后清空定时器
+      }, 120000); // 120,000 毫秒 = 2 分钟
+    }
+
+    // Send a single generation request
+    function sendGenerateRequest(prompt, uniqueId, model, size) {
+      return fetch("https://stablediffusion3net.erweima.ai/api/v1/generate/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Uniqueid": uniqueId
+        },
+        body: JSON.stringify({
+          prompt,
+          negativePrompt: "",
+          model,
+          size,
+          batchSize: "2",
+          imageUrl: "",
+          rangeValue: null
+        })
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.code !== 200) {
+            throw new Error(data.msg);
+          }
+        });
+    }
+
+    // Fetch and display image list
+    async function fetchImageList() {
+      const uniqueId = document.getElementById("uniqueid").value;
+
+      if (!uniqueId) {
+        alert("Please select or enter a Unique ID.");
+        return;
+      }
+
+      fetch("https://stablediffusion3net.erweima.ai/api/v1/generate/pageRecordList", {
+        method: "GET",
+        headers: {
+          "Uniqueid": uniqueId
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.code === 200) {
+            const imageGrid = document.getElementById("image-grid");
+            imageGrid.innerHTML = ""; // Clear the grid
+            const records = data.data.records || [];
+            records.forEach(record => {
+              record.picUrlInfoList.forEach(pic => {
+                const img = document.createElement("img");
+                img.src = pic.picUrl;
+                imageGrid.appendChild(img);
+              });
+            });
+            // Scroll to the image grid
+            document.getElementById("image-grid").scrollIntoView({ behavior: "smooth" });
+          } else {
+            alert("Error fetching images: " + data.msg);
+          }
+        })
+        .catch(error => alert("Failed to fetch images: " + error));
+    }
+
+    async function getValidatedCode() {
+      return await fetch(serverAddr + "/api/get-validated-code?code=xiw", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          return data.data.validatedCode;
+        });
+    }
+  </script>
+
+</body>
+
+</html>
