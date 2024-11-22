@@ -59,6 +59,21 @@
             margin-right: 10px;
         }
 
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
         .image-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr); /* 每行四列 */
@@ -163,6 +178,17 @@
         .download-button:hover {
             background-color: #ccc;
         }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
     </style>
 </head>
 
@@ -174,10 +200,11 @@
     <!-- Unique ID Section -->
     <label for="uniqueid">Unique ID</label>
     <input type="text" id="uniqueid" placeholder="Enter unique ID">
-    <button onclick="generateUniqueID()">Generate ID</button>
+    <button onclick="generateUniqueID()">Generate</button>
 
-    <button onclick="saveUniqueID()">Save ID</button>
-    <button onclick="removeUniqueID()">Remove ID</button>
+    <button onclick="saveUniqueID()">Save</button>
+    <button onclick="removeUniqueID()">Remove</button>
+    <button onclick="exportToTxt()">Export</button>
 
 
     <label for="saved-uniqueid">Saved Unique IDs</label>
@@ -222,7 +249,7 @@
     </select>
 
     <!-- Request Buttons -->
-    <button onclick="startImageGeneration()">Generate Image</button>
+    <button id="generate-button" onclick="startImageGeneration()">Generate Image</button>
     <button onclick="fetchImageList()">Get Images</button>
 </div>
 
@@ -286,7 +313,7 @@
         let uniqueId = document.getElementById("uniqueid").value
         if (savedUniqueIds.includes(uniqueId)) {
             savedUniqueIds = savedUniqueIds.filter(e => {
-                return e!==uniqueId
+                return e !== uniqueId
             })
             localStorage.setItem(storageKeySavedUniqueIds, JSON.stringify(savedUniqueIds));
             loadSavedUniqueIds();
@@ -330,18 +357,25 @@
 
         clearInterval(imageFetchInterval);
 
+        const button = document.getElementById("generate-button");
+        button.disabled = true; // 禁用按钮
+        button.innerHTML = 'Posting... <span class="loading-spinner"></span>'; // 显示 loading 效果
         for (let i = 1; i <= groupCount; i++) {
             try {
-                sendGenerateRequest(prompt, uniqueId, model, aspectRatio);
+                await sendGenerateRequest(prompt, uniqueId, model, aspectRatio);
                 console.log(`Request ${i} succeeded.`);
             } catch (error) {
                 alert(`Request ${i} failed: ${error}`);
+                button.disabled = false; // 启用按钮
+                button.innerHTML = "Generate Image(generate id first)"; // 恢复按钮文本
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, 5000));
         }
 
         alert(`All ${groupCount} image generation requests completed.`);
+        button.disabled = false; // 启用按钮
+        button.innerHTML = "Generate Image"; // 恢复按钮文本
 
         // 设置 2 分钟后获取图片
         delayedFetchTimeout = setTimeout(() => {
@@ -451,6 +485,36 @@
         a.click();
         document.body.removeChild(a);
     }
+
+    function exportToTxt() {
+        // 1. Get saved unique IDs from localStorage
+        const savedUniqueIds = JSON.parse(localStorage.getItem(storageKeySavedUniqueIds)) || [];
+
+        if (savedUniqueIds.length === 0) {
+            alert("No saved unique IDs found.");
+            return;
+        }
+
+        // 2. Convert array to a single string with newline separation
+        const txtContent = savedUniqueIds.join("\n");
+
+        // 3. Create a Blob object containing the TXT data
+        const blob = new Blob([txtContent], {type: "text/plain"});
+
+        // 4. Create a temporary download link
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "saved_unique_ids.txt"; // Filename for the download
+        link.style.display = "none";
+
+        // 5. Add the link to the DOM, click it, and then remove it
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        alert("File downloaded: saved_unique_ids.txt");
+    }
+</script>
 </script>
 
 </html>
