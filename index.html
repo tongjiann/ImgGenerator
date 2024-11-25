@@ -363,7 +363,7 @@
         for (let i = 1; i <= groupCount; i++) {
             try {
                 await sendGenerateRequest(prompt, uniqueId, model, aspectRatio);
-                console.log(`Request ${i} succeeded.`);
+                console.log(getFormattedTime() + `Request ${i} succeeded.`);
             } catch (error) {
                 alert(`Request ${i} failed: ${error}`);
                 button.disabled = false; // 启用按钮
@@ -432,7 +432,7 @@
             alert("Please select or enter a Unique ID.");
             return;
         }
-
+        console.log(getFormattedTime() + "start to get pic info...")
         fetch("https://stablediffusion3net.erweima.ai/api/v1/generate/pageRecordList", {
             method: "GET",
             headers: {
@@ -514,6 +514,17 @@
         document.body.removeChild(link);
 
         alert("File downloaded: saved_unique_ids.txt");
+    }
+
+    function getFormattedTime() {
+        const date = new Date();
+        const year = date.getFullYear().toString().padStart(4, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const day = date.getDate().toString().padStart(2, "0");
+        const hour = date.getHours().toString().padStart(2, "0");
+        const minute = date.getMinutes().toString().padStart(2, "0");
+        const second = date.getSeconds().toString().padStart(2, "0");
+        return (`${year}-${month}-${day}-${hour}-${minute}-${second} `);
     }
 </script>
 </script>
