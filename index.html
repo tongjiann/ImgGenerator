@@ -164,8 +164,7 @@
         .download-button {
             position: absolute;
             bottom: 5px;
-            left: 10%;
-            transform: translateX(-50%);
+            left: 0;
             padding: 5px 10px;
             background-color: transparent;
             color: white;
@@ -189,7 +188,94 @@
             animation: spin 1s linear infinite;
             margin-left: 10px;
         }
+
+        /* 页签样式 */
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            border-bottom: 2px solid #ccc;
+            margin-bottom: 10px;
+        }
+
+        .tabs button {
+            flex: 1;
+            padding: 10px;
+            cursor: pointer;
+            border: none;
+            border-bottom: 2px solid transparent;
+            background: #f9f9f9;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .tabs button.active-tab {
+            border-bottom: 2px solid #007BFF;
+            color: #007BFF;
+        }
+
+        .tabs button:hover {
+            background: #f1f1f1;
+        }
+
+        /* 喜欢按钮样式 */
+        .like-button {
+            position: absolute;
+            bottom: 5px;
+            right: 0;
+            background-color: transparent;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        /* 喜欢按钮样式 */
+        .send-button {
+            position: absolute;
+            bottom: 5px;
+            left: 0;
+            background-color: transparent;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        /* 喜欢按钮样式 */
+        .dislike-button {
+            position: absolute;
+            bottom: 5px;
+            right: 0;
+            background-color: transparent;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .like-button.liked {
+            background-color: #4caf50;
+        }
+
+        .like-button:hover {
+            background-color: #ff0000;
+        }
+
+        .image-card {
+            position: relative;
+        }
     </style>
+
 </head>
 
 <body>
@@ -255,8 +341,15 @@
 
 <!-- 右侧面板：显示生成的图片 -->
 <div class="right-panel">
-    <h2>Generated Images</h2>
-    <div class="image-grid" id="image-grid"></div>
+    <!-- 页签 -->
+    <div class="tabs">
+        <button id="tab-generated" class="active-tab" onclick="switchTab('generated')">Generated Images</button>
+        <button id="tab-favorites" onclick="switchTab('favorites')">My Favorites</button>
+    </div>
+
+    <!-- 图片区域 -->
+    <div id="generated-images" class="image-grid"></div>
+    <div id="favorite-images" class="image-grid" style="display: none;"></div>
 </div>
 
 <!-- 放大图片的模态框 -->
@@ -269,7 +362,6 @@
     const storageKeyUniqueId = "uniqueid";
     const storageKeyPrompt = "prompt";
     const storageKeySavedUniqueIds = "savedUniqueIds";
-    const serverAddr = "http://localhost:8880";
     let imageFetchInterval;
 
     // Load saved values on page load
@@ -424,7 +516,81 @@
         modal.classList.remove("show");
     }
 
-    // 修改 fetchImageList 函数，添加图片点击事件
+    const storageKeyFavorites = "favoriteImages";
+
+    // 切换页签
+    function switchTab(tab) {
+        document.getElementById("tab-generated").classList.toggle("active-tab", tab === "generated");
+        document.getElementById("tab-favorites").classList.toggle("active-tab", tab === "favorites");
+
+        document.getElementById("generated-images").style.display = tab === "generated" ? "grid" : "none";
+        document.getElementById("favorite-images").style.display = tab === "favorites" ? "grid" : "none";
+
+        if (tab === "favorites") {
+            loadFavorites();
+        }
+    }
+
+    // 添加喜欢的图片到浏览器缓存
+    function addToFavorites(imageUrl) {
+        const favorites = JSON.parse(localStorage.getItem(storageKeyFavorites)) || [];
+        if (!favorites.includes(imageUrl)) {
+            favorites.push(imageUrl);
+            localStorage.setItem(storageKeyFavorites, JSON.stringify(favorites));
+        }
+    }
+
+    function removeFromFavorites(imageUrl) {
+        const favorites = JSON.parse(localStorage.getItem(storageKeyFavorites)) || [];
+        if (favorites.includes(imageUrl)) {
+            const index = favorites.findIndex(item => item.id === imageUrl);
+            favorites.splice(index, 1);
+            localStorage.setItem(storageKeyFavorites, JSON.stringify(favorites));
+        }
+        loadFavorites()
+    }
+
+    // 从缓存中加载喜欢的图片
+    function loadFavorites() {
+        const favoriteImages = JSON.parse(localStorage.getItem(storageKeyFavorites)) || [];
+        const favoriteGrid = document.getElementById("favorite-images");
+        favoriteGrid.innerHTML = "";
+
+        favoriteImages.forEach((imageUrl, index) => {
+            const card = document.createElement("div");
+            card.className = "image-card";
+
+            const img = document.createElement("img");
+            img.src = imageUrl;
+            img.alt = `Favorite Image ${index + 1}`;
+            img.onclick = () => openImageModal(imageUrl);
+
+            // 添加喜欢按钮
+            const sendButton = document.createElement("button");
+            sendButton.className = "send-button";
+            sendButton.textContent = "↩︎";
+            sendButton.onclick = () => sendMsg(imageUrl);
+            const likeButton = document.createElement("button");
+            likeButton.className = "dislike-button";
+            likeButton.textContent = "×";
+            likeButton.onclick = () => removeFromFavorites(imageUrl);
+
+            card.appendChild(img);
+            card.appendChild(sendButton)
+            card.appendChild(likeButton)
+            favoriteGrid.appendChild(card);
+        });
+        document.getElementById("favorite-images").scrollIntoView({behavior: "smooth"});
+    }
+
+    function sendMsg(imgUrl) {
+        let server = "https://xiw.world"
+        fetch(server + "/api/msg/send-pic?url=" + encodeURIComponent(imgUrl), {
+            method: "GET",
+        })
+    }
+
+    // 修改 fetchImageList 函数，增加喜欢按钮
     async function fetchImageList() {
         const uniqueId = document.getElementById("uniqueid").value;
 
@@ -442,33 +608,40 @@
             .then(response => response.json())
             .then(data => {
                 if (data.code === 200) {
-                    const imageGrid = document.getElementById("image-grid");
-                    imageGrid.innerHTML = ""; // Clear the grid
+                    const imageGrid = document.getElementById("generated-images");
+                    imageGrid.innerHTML = ""; // 清空原内容
                     const records = data.data.records || [];
                     records.forEach(record => {
                         record.picUrlInfoList.forEach((pic, index) => {
                             const card = document.createElement("div");
-
                             card.className = "image-card";
 
                             const img = document.createElement("img");
                             img.src = pic.picUrl;
                             img.alt = `Image ${index + 1}`;
-                            img.onclick = () => openImageModal(pic.picUrl); // 添加点击事件
+                            img.onclick = () => openImageModal(pic.picUrl);
 
                             const button = document.createElement("button");
                             button.className = "download-button";
                             button.textContent = "⬇";
                             button.onclick = () => downloadImage(img.src, `image-${index + 1}.png`);
 
+                            // 添加喜欢按钮
+                            const likeButton = document.createElement("button");
+                            likeButton.className = "like-button";
+                            likeButton.textContent = "♡";
+                            likeButton.onclick = () => addToFavorites(pic.picUrl);
+
                             card.appendChild(img);
                             card.appendChild(button);
+                            card.appendChild(likeButton);
+
 
                             imageGrid.appendChild(card);
                         });
                     });
                     // Scroll to the image grid
-                    document.getElementById("image-grid").scrollIntoView({behavior: "smooth"});
+                    document.getElementById("generated-images").scrollIntoView({behavior: "smooth"});
                 } else {
                     alert("Error fetching images: " + data.msg);
                 }
